@@ -7,6 +7,11 @@ use std::fs;
 use std::path::{Path, PathBuf};
 
 fn main() {
+    let args: Vec<String> = env::args().collect();
+    if args.get(1).map(|s| s.as_str()) == Some("--version") {
+        println!("{}", env!("CARGO_PKG_VERSION"));
+        return;
+    }
     if let Err(e) = run() {
         eprintln!("kebab: {e}");
         std::process::exit(1);
