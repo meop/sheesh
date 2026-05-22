@@ -1,6 +1,6 @@
-pub mod trailer;
-pub mod pe;
+pub mod data;
 mod platform;
+pub mod windows_pe;
 
 pub fn run() -> ! {
     match try_run() {
@@ -13,8 +13,8 @@ pub fn run() -> ! {
 }
 
 fn try_run() -> Result<u32, Box<dyn std::error::Error>> {
-    let t = trailer::Trailer::read_from_self()
-        .ok_or("no shim data — use kebab to stamp a source path")?;
+    let t =
+        data::Trailer::read_from_self().ok_or("no shim data — use kebab to stamp a source path")?;
     if !t.source_path.exists() {
         return Err(format!("source not found: {}", t.source_path.display()).into());
     }

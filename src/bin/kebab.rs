@@ -1,6 +1,6 @@
+use sheesh::data::Trailer;
 #[cfg(windows)]
-use sheesh::pe;
-use sheesh::trailer::Trailer;
+use sheesh::windows_pe;
 use std::env;
 use std::error::Error;
 use std::fs;
@@ -33,10 +33,14 @@ fn parse_args() -> Result<(PathBuf, PathBuf), Box<dyn Error>> {
     while let Some(arg) = args.next() {
         match arg.as_str() {
             "--source-path" => {
-                source = Some(PathBuf::from(args.next().ok_or("--source-path requires a value")?));
+                source = Some(PathBuf::from(
+                    args.next().ok_or("--source-path requires a value")?,
+                ));
             }
             "--target-path" => {
-                target = Some(PathBuf::from(args.next().ok_or("--target-path requires a value")?));
+                target = Some(PathBuf::from(
+                    args.next().ok_or("--target-path requires a value")?,
+                ));
             }
             other => return Err(format!("unknown argument: {other}").into()),
         }
@@ -48,12 +52,19 @@ fn parse_args() -> Result<(PathBuf, PathBuf), Box<dyn Error>> {
 }
 
 fn select_template(source_path: &Path) -> Result<PathBuf, Box<dyn Error>> {
-    let shim_dir = env::current_exe()?.parent().ok_or("cannot locate kebab exe dir")?.to_path_buf();
+    let shim_dir = env::current_exe()?
+        .parent()
+        .ok_or("cannot locate kebab exe dir")?
+        .to_path_buf();
 
     #[cfg(windows)]
     {
-        let use_gui = matches!(pe::detect(source_path)?, pe::Subsystem::Gui);
-        let name = if use_gui { "sheesh-gui.exe" } else { "sheesh.exe" };
+        let use_gui = matches!(windows_pe::detect(source_path)?, windows_pe::Subsystem::Gui);
+        let name = if use_gui {
+            "sheesh-gui.exe"
+        } else {
+            "sheesh.exe"
+        };
         Ok(shim_dir.join(name))
     }
 

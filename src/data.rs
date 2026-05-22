@@ -27,7 +27,9 @@ impl Trailer {
         f.read_exact(&mut buf).ok()?;
 
         let s = String::from_utf8(buf).ok()?;
-        Some(Trailer { source_path: PathBuf::from(s) })
+        Some(Trailer {
+            source_path: PathBuf::from(s),
+        })
     }
 
     pub fn append_to(source_path: &Path, dest: &mut fs::File) -> io::Result<()> {

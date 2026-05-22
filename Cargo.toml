@@ -1,9 +1,25 @@
-[workspace]
-members = ["sheesh", "kebab"]
-resolver = "2"
+[package]
+name = "sheesh"
+version = "0.1.0"
+edition = "2024"
+
+[lib]
+
+[[bin]]
+name = "sheesh"
+path = "src/bin/sheesh.rs"
+
+[[bin]]
+name = "sheesh-gui"
+path = "src/bin/sheesh-gui.rs"
+
+[[bin]]
+name = "kebab"
+path = "src/bin/kebab.rs"
 
 [profile.release]
 opt-level = "z"
 lto = true
 codegen-units = 1
 strip = true
+panic = "abort"

@@ -3,12 +3,5 @@
 version = 4
 
 [[package]]
-name = "kebab"
-version = "0.1.0"
-dependencies = [
- "sheesh",
-]
-
-[[package]]
 name = "sheesh"
 version = "0.1.0"

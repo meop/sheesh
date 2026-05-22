@@ -1,6 +1,6 @@
+use std::fs;
 use std::io::{self, Read, Seek, SeekFrom};
 use std::path::Path;
-use std::fs;
 
 pub enum Subsystem {
     Gui,
@@ -22,7 +22,10 @@ pub fn detect(path: &Path) -> io::Result<Subsystem> {
     let mut pe = [0u8; 94];
     f.read_exact(&mut pe)?;
     if &pe[0..4] != b"PE\0\0" {
-        return Err(io::Error::new(io::ErrorKind::InvalidData, "PE signature missing"));
+        return Err(io::Error::new(
+            io::ErrorKind::InvalidData,
+            "PE signature missing",
+        ));
     }
 
     let subsystem = u16::from_le_bytes(pe[92..94].try_into().unwrap());

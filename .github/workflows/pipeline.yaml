@@ -1,0 +1,167 @@
+---
+name: Pipeline
+
+on:
+  push:
+    branches:
+      - '**'
+  pull_request:
+    branches:
+      - '**'
+
+permissions:
+  contents: read
+
+jobs:
+  version:
+    name: Version
+    runs-on: ubuntu-latest
+    outputs:
+      changed: ${{ steps.check.outputs.changed }}
+      new_version: ${{ steps.check.outputs.version }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+      - name: Check for version tag
+        id: check
+        shell: bash
+        run: |
+          VERSION=$(grep -m1 '^version = ' Cargo.toml | cut -d'"' -f2)
+          echo "Target version: $VERSION"
+          if git rev-parse "v$VERSION" >/dev/null 2>&1; then
+            echo "Tag v$VERSION already exists. Skipping release steps."
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "Tag v$VERSION does not exist. Triggering release pipeline."
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+            echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          fi
+
+  validate:
+    name: Validate
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+      - name: Format check
+        run: cargo fmt --check
+      - name: Lint
+        run: cargo clippy -- -D warnings
+      - name: Test
+        run: cargo test
+
+  build:
+    name: Build (${{ matrix.artifact }})
+    needs: [ version, validate ]
+    if: github.ref == 'refs/heads/main' && needs.version.outputs.changed == 'true'
+    permissions:
+      contents: read
+    strategy:
+      matrix:
+        include:
+          - os: ubuntu-24.04-arm
+            target: aarch64-unknown-linux-musl
+            artifact: linux-arm64
+          - os: ubuntu-24.04
+            target: x86_64-unknown-linux-musl
+            artifact: linux-x86_64
+          - os: macos-26
+            target: aarch64-apple-darwin
+            artifact: macos-arm64
+          - os: macos-26
+            target: x86_64-apple-darwin
+            artifact: macos-x86_64
+          - os: windows-11-arm
+            target: aarch64-pc-windows-msvc
+            artifact: windows-arm64
+          - os: windows-2025
+            target: x86_64-pc-windows-msvc
+            artifact: windows-x86_64
+    runs-on: ${{ matrix.os }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.target }}
+      - name: Install musl tools
+        if: runner.os == 'Linux'
+        run: sudo apt-get install -y musl-tools
+      - name: Build
+        run: cargo build --release --target ${{ matrix.target }}
+      - name: Package (Unix)
+        if: runner.os != 'Windows'
+        shell: bash
+        run: |
+          VERSION=${{ needs.version.outputs.new_version }}
+          ARTIFACT=sheesh-$VERSION-${{ matrix.artifact }}
+          mkdir -p dist/$ARTIFACT
+          cp target/${{ matrix.target }}/release/sheesh dist/$ARTIFACT/
+          cp target/${{ matrix.target }}/release/kebab dist/$ARTIFACT/
+          tar -czf dist/$ARTIFACT.tar.gz -C dist $ARTIFACT
+      - name: Package (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $VERSION = "${{ needs.version.outputs.new_version }}"
+          $ARTIFACT = "sheesh-$VERSION-${{ matrix.artifact }}"
+          New-Item -ItemType Directory -Path "dist/$ARTIFACT" -Force | Out-Null
+          Copy-Item "target/${{ matrix.target }}/release/sheesh.exe" "dist/$ARTIFACT/"
+          Copy-Item "target/${{ matrix.target }}/release/sheesh-gui.exe" "dist/$ARTIFACT/"
+          Copy-Item "target/${{ matrix.target }}/release/kebab.exe" "dist/$ARTIFACT/"
+          Compress-Archive -Path "dist/$ARTIFACT" -DestinationPath "dist/$ARTIFACT.zip"
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: sheesh-${{ needs.version.outputs.new_version }}-${{ matrix.artifact }}
+          path: dist/sheesh-${{ needs.version.outputs.new_version }}-${{ matrix.artifact }}.*
+          if-no-files-found: error
+
+  publish:
+    name: Publish
+    needs: [ version, build ]
+    if: github.ref == 'refs/heads/main' && needs.version.outputs.changed == 'true'
+    permissions:
+      contents: write
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: dist
+          merge-multiple: true
+      - name: Generate checksums
+        run: |
+          cd dist
+          sha256sum * > checksums.txt
+      - name: Import GPG key
+        uses: crazy-max/ghaction-import-gpg@v6
+        with:
+          gpg_private_key: ${{ secrets.GPG_PRIVATE_KEY }}
+          passphrase: ${{ secrets.GPG_PASSPHRASE }}
+          git_user_signingkey: true
+          git_tag_gpgsign: true
+      - name: Create signed tag
+        run: |
+          git tag -s "v${{ needs.version.outputs.new_version }}" -m "Release v${{ needs.version.outputs.new_version }}"
+          git push origin "v${{ needs.version.outputs.new_version }}"
+      - name: Create GitHub release
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          VERSION=${{ needs.version.outputs.new_version }}
+          gh release create "v$VERSION" \
+            --title "v$VERSION" \
+            --generate-notes \
+            dist/*.tar.gz dist/*.zip dist/checksums.txt
