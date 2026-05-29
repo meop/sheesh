@@ -18,6 +18,6 @@ fn try_run() -> Result<u32, Box<dyn std::error::Error>> {
     if !t.source_path.exists() {
         return Err(format!("source not found: {}", t.source_path.display()).into());
     }
-    let args: Vec<String> = std::env::args().skip(1).collect();
+    let args: Vec<std::ffi::OsString> = std::env::args_os().skip(1).collect();
     platform::spawn_target(&t.source_path, &args)
 }

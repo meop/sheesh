@@ -22,6 +22,11 @@ impl Trailer {
         }
         let path_len = u32::from_le_bytes(tail[0..4].try_into().unwrap()) as i64;
 
+        let file_len = f.seek(SeekFrom::End(0)).ok()? as i64;
+        if path_len + 8 > file_len {
+            return None;
+        }
+
         f.seek(SeekFrom::End(-8 - path_len)).ok()?;
         let mut buf = vec![0u8; path_len as usize];
         f.read_exact(&mut buf).ok()?;
