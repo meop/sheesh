@@ -158,12 +158,12 @@ jobs:
       - name: Generate and sign checksums
         working-directory: dist
         run: |
-          LC_ALL=C sha256sum -- * > SHASUMS256.txt
+          LC_ALL=C sha256sum -- * > sha256sums.txt
           gpg --batch --yes \
             --local-user '${{ steps.import_gpg.outputs.fingerprint }}' \
-            --output SHASUMS256.txt.sig \
-            --detach-sign SHASUMS256.txt
-          gpg --batch --verify SHASUMS256.txt.sig SHASUMS256.txt
+            --output sha256sums.txt.sig \
+            --detach-sign sha256sums.txt
+          gpg --batch --verify sha256sums.txt.sig sha256sums.txt
       - name: Create signed tag
         run: |
           git tag -s "v${{ needs.version.outputs.new_version }}" -m "Release v${{ needs.version.outputs.new_version }}"
@@ -176,4 +176,4 @@ jobs:
           gh release create "v$VERSION" \
             --title "v$VERSION" \
             --generate-notes \
-            dist/*.tar.gz dist/*.zip dist/SHASUMS256.txt dist/SHASUMS256.txt.sig
+            dist/*.tar.gz dist/*.zip dist/sha256sums.txt dist/sha256sums.txt.sig
