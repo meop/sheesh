@@ -44,8 +44,8 @@ Every release archive contains `LICENSE`. Verify the signed checksum
 manifest with the public release key before checking downloaded artifacts:
 
 ```sh
-gpg --verify sha256sums.txt.sig sha256sums.txt
-sha256sum --ignore-missing --check sha256sums.txt
+gpg --verify SHA256SUMS.sig SHA256SUMS
+sha256sum --ignore-missing --check SHA256SUMS
 ```
 
 ## License
