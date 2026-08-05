@@ -37,3 +37,17 @@ cargo build --release --target x86_64-apple-darwin
 cargo build --release --target aarch64-pc-windows-msvc
 cargo build --release --target x86_64-pc-windows-msvc
 ```
+
+## Verifying releases
+
+Every release archive contains `LICENSE`. Verify the signed checksum
+manifest with the public release key before checking downloaded artifacts:
+
+```sh
+gpg --verify SHASUMS256.txt.sig SHASUMS256.txt
+sha256sum --ignore-missing --check SHASUMS256.txt
+```
+
+## License
+
+[MIT](LICENSE)

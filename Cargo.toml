@@ -2,6 +2,7 @@
 name = "sheesh"
 version = "0.1.1"
 edition = "2024"
+license = "MIT"
 
 [lib]
 
