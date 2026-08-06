@@ -1,4 +1,4 @@
-# CLAUDE.md
+# AGENTS.md
 
 Build/test/lint commands for this project.
 

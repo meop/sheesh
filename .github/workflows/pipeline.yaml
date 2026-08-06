@@ -109,6 +109,7 @@ jobs:
           mkdir -p dist/$ARTIFACT
           cp target/${{ matrix.target }}/release/sheesh dist/$ARTIFACT/
           cp target/${{ matrix.target }}/release/kebab dist/$ARTIFACT/
+          cp LICENSE dist/$ARTIFACT/
           tar -czf dist/$ARTIFACT.tar.gz -C dist $ARTIFACT
       - name: Package (Windows)
         if: runner.os == 'Windows'
@@ -120,6 +121,7 @@ jobs:
           Copy-Item "target/${{ matrix.target }}/release/sheesh.exe" "dist/$ARTIFACT/"
           Copy-Item "target/${{ matrix.target }}/release/sheesh-gui.exe" "dist/$ARTIFACT/"
           Copy-Item "target/${{ matrix.target }}/release/kebab.exe" "dist/$ARTIFACT/"
+          Copy-Item "LICENSE" "dist/$ARTIFACT/"
           Compress-Archive -Path "dist/$ARTIFACT" -DestinationPath "dist/$ARTIFACT.zip"
       - name: Upload artifact
         uses: actions/upload-artifact@v6
@@ -145,17 +147,23 @@ jobs:
         with:
           path: dist
           merge-multiple: true
-      - name: Generate checksums
-        run: |
-          cd dist
-          sha256sum * > checksums.txt
       - name: Import GPG key
+        id: import_gpg
         uses: crazy-max/ghaction-import-gpg@v7
         with:
           gpg_private_key: ${{ secrets.GPG_PRIVATE_KEY }}
           passphrase: ${{ secrets.GPG_PASSPHRASE }}
           git_user_signingkey: true
           git_tag_gpgsign: true
+      - name: Generate and sign checksums
+        working-directory: dist
+        run: |
+          LC_ALL=C sha256sum -- * > SHA256SUMS
+          gpg --batch --yes \
+            --local-user '${{ steps.import_gpg.outputs.fingerprint }}' \
+            --output SHA256SUMS.sig \
+            --detach-sign SHA256SUMS
+          gpg --batch --verify SHA256SUMS.sig SHA256SUMS
       - name: Create signed tag
         run: |
           git tag -s "v${{ needs.version.outputs.new_version }}" -m "Release v${{ needs.version.outputs.new_version }}"
@@ -168,4 +176,4 @@ jobs:
           gh release create "v$VERSION" \
             --title "v$VERSION" \
             --generate-notes \
-            dist/*.tar.gz dist/*.zip dist/checksums.txt
+            dist/*.tar.gz dist/*.zip dist/SHA256SUMS dist/SHA256SUMS.sig
