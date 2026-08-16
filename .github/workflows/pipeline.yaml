@@ -56,9 +56,9 @@ jobs:
       - name: Format check
         run: cargo fmt --check
       - name: Lint
-        run: cargo clippy -- -D warnings
+        run: cargo clippy --locked -- -D warnings
       - name: Test
-        run: cargo test
+        run: cargo test --locked
 
   build:
     name: Build (${{ matrix.artifact }})
@@ -99,7 +99,7 @@ jobs:
         if: runner.os == 'Linux'
         run: sudo apt-get install -y musl-tools
       - name: Build
-        run: cargo build --release --target ${{ matrix.target }}
+        run: cargo build --locked --release --target ${{ matrix.target }}
       - name: Package (Unix)
         if: runner.os != 'Windows'
         shell: bash
