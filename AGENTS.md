@@ -54,9 +54,9 @@ when that pin is bumped.
 ## Project structure
 
 - `src/lib.rs` — shim runtime: reads the embedded trailer and execs the target
-- `src/data.rs` — binary trailer format (append/read the embedded path at end of exe)
+- `src/data.rs` — binary trailer format (append/read the embedded path and arguments at end of exe), `%NAME%` expansion
 - `src/windows_pe.rs` — Windows PE subsystem detection (GUI vs Console)
-- `src/platform/` — platform dispatch for `spawn_target` (unix: exec, windows: spawn+wait)
+- `src/platform/` — platform dispatch for `spawn_target` (unix: exec, windows: spawn+wait, Ctrl+C left to the target)
 - `src/bin/sheesh.rs` — console shim entry point
 - `src/bin/sheesh-gui.rs` — GUI subsystem shim entry point
 - `src/bin/kebab.rs` — stamper tool: copies shim template and embeds target path
@@ -67,5 +67,8 @@ when that pin is bumped.
 - All three compile on every platform; only Windows releases package `sheesh-gui`
   (the `#![cfg_attr(windows, windows_subsystem = "windows")]` attribute is a no-op on Unix)
 - `kebab` selects the GUI or console shim template based on PE subsystem of the source binary
-- Trailer format: `[path bytes][u32 path_len LE][b"SHIM"]` appended to the exe
+- Trailer format: `[path bytes][u32 path_len LE][b"SHIM"]` appended to the exe; with stamped arguments
+  `[path\0arg\0...][u32 len LE][b"SHM2"]`. A shim stamped without arguments is byte for byte what it was before
+  arguments existed
+- `%NAME%` is expanded on Windows only, when the shim runs; kebab expands it too, but only to read the PE subsystem
 - Version is in `Cargo.toml`; CI creates a signed tag on version bump

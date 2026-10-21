@@ -15,6 +15,14 @@ Shell Executable Embedded Shim. Create tiny wrapper executables that forward exe
 1. `kebab --source-path <target> --target-path <output>` copies the appropriate `sheesh` template and appends the target path as a small binary trailer.
 2. When the output executable is run, it reads the trailer, resolves the target path, and execs it — passing all arguments through.
 
+`--arg <value>` (repeatable) stamps arguments the target always gets first, before the shim's own:
+`kebab --source-path pwsh.exe --target-path shell.exe --arg -nol` runs `pwsh.exe -nol <args>`.
+
+On Windows, `%NAME%` in the stamped path and arguments is the environment variable NAME when the shim runs (one left
+unset stays as written), so one machine-wide shim can run each user's own copy of a tool:
+`--source-path '%USERPROFILE%\.ghpm\bin\pwsh.exe'`. While the target runs, the shim lets it have Ctrl+C and
+Ctrl+Break, and keeps waiting for it rather than exiting first.
+
 On Windows, `kebab` inspects the PE subsystem of the target to decide whether to use the console or GUI shim template.
 
 ## Building

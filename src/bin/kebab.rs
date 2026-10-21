@@ -19,20 +19,23 @@ fn main() {
 }
 
 fn run() -> Result<(), Box<dyn Error>> {
-    let (source_path, target_path) = parse_args()?;
+    let (source_path, target_path, stamped_args) = parse_args()?;
 
-    let template = select_template(&source_path)?;
+    // the path as the shim will find it, for its subsystem; the trailer keeps it as written
+    let resolved = PathBuf::from(sheesh::expand_env(&source_path.to_string_lossy()));
+    let template = select_template(&resolved)?;
     fs::copy(&template, &target_path)?;
 
     let mut dest = fs::OpenOptions::new().append(true).open(&target_path)?;
-    Trailer::append_to(&source_path, &mut dest)?;
+    Trailer::append_to(&source_path, &stamped_args, &mut dest)?;
 
     Ok(())
 }
 
-fn parse_args() -> Result<(PathBuf, PathBuf), Box<dyn Error>> {
+fn parse_args() -> Result<(PathBuf, PathBuf, Vec<String>), Box<dyn Error>> {
     let mut source: Option<PathBuf> = None;
     let mut target: Option<PathBuf> = None;
+    let mut stamped_args = Vec::new();
 
     let mut args = env::args().skip(1);
     while let Some(arg) = args.next() {
@@ -47,13 +50,16 @@ fn parse_args() -> Result<(PathBuf, PathBuf), Box<dyn Error>> {
                     args.next().ok_or("--target-path requires a value")?,
                 ));
             }
+            "--arg" => {
+                stamped_args.push(args.next().ok_or("--arg requires a value")?);
+            }
             other => return Err(format!("unknown argument: {other}").into()),
         }
     }
 
     let source = source.ok_or("--source-path is required")?;
     let target = target.ok_or("--target-path is required")?;
-    Ok((source, target))
+    Ok((source, target, stamped_args))
 }
 
 fn select_template(source_path: &Path) -> Result<PathBuf, Box<dyn Error>> {
