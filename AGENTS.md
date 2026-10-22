@@ -56,7 +56,7 @@ when that pin is bumped.
 - `src/lib.rs` — shim runtime: reads the embedded trailer and execs the target
 - `src/data.rs` — binary trailer format (append/read the embedded path and arguments at end of exe), `%NAME%` expansion
 - `src/windows_pe.rs` — Windows PE subsystem detection (GUI vs Console)
-- `src/platform/` — platform dispatch for `spawn_target` (unix: exec, windows: spawn+wait, Ctrl+C left to the target)
+- `src/platform/` — platform dispatch for `spawn_target` (unix: exec under the shim's argv[0], windows: spawn+wait, Ctrl+C left to the target)
 - `src/bin/sheesh.rs` — console shim entry point
 - `src/bin/sheesh-gui.rs` — GUI subsystem shim entry point
 - `src/bin/kebab.rs` — stamper tool: copies shim template and embeds target path
