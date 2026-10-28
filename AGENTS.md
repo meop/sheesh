@@ -11,6 +11,11 @@ cargo fmt
 cargo clippy -- -D warnings
 ```
 
+## Comments
+
+No comment explains why code does what it does where a unit test can show it: the test is the explanation, and it
+fails when the reasoning stops holding. A comment is only for what no test can show.
+
 ## Keeping this file current
 
 Update this file whenever a binary or source file is added, removed or renamed,

@@ -3,8 +3,6 @@ use std::os::unix::process::CommandExt;
 use std::path::Path;
 use std::process::Command;
 
-/// the shim becomes the target: one process, which gets signals and the terminal and ends with its own exit code, so
-/// there is nothing for a shim waiting as its parent to pass along
 pub fn spawn_target(
     target: &Path,
     stamped: &[OsString],
@@ -16,7 +14,6 @@ pub fn spawn_target(
     if let Some(arg0) = own.next() {
         cmd.arg0(arg0);
     }
-    // the stamped arguments first, then the shim's own
     Err(cmd.args(stamped).args(own).exec().into())
 }
 

@@ -2,12 +2,10 @@ pub mod data;
 mod platform;
 pub mod windows_pe;
 
-/// a console shim: its errors go to stderr
 pub fn run() -> ! {
     run_reporting(|e| eprintln!("shim: {e}"))
 }
 
-/// a GUI shim, which has no console: on windows its errors are a message box
 pub fn run_gui() -> ! {
     run_reporting(|e| platform::alert(&format!("shim: {e}")))
 }

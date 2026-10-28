@@ -20,20 +20,26 @@ fn main() {
 
 fn run() -> Result<(), Box<dyn Error>> {
     let (source_path, target_path, stamped_args) = parse_args()?;
-
-    // a relative path would be found from wherever the shim is run, so it is made absolute here, from where mallet is;
-    // one that opens with `%NAME%` is absolute once the shim expands it
-    let source_path = if source_path.to_string_lossy().starts_with('%') {
-        source_path
-    } else {
-        std::path::absolute(&source_path)?
-    };
-
-    // the path as the shim will find it, for its subsystem; the trailer keeps it as written
+    let source_path = absolute_source(source_path)?;
     let resolved = PathBuf::from(wedge::expand_env(&source_path.to_string_lossy()));
     let template = select_template(&resolved)?;
+    stamp(&template, &source_path, &target_path, &stamped_args)
+}
 
-    // stamped beside the shim, then moved over it: nothing ever runs a shim half written
+fn absolute_source(source_path: PathBuf) -> std::io::Result<PathBuf> {
+    if source_path.to_string_lossy().starts_with('%') {
+        Ok(source_path)
+    } else {
+        std::path::absolute(&source_path)
+    }
+}
+
+fn stamp(
+    template: &Path,
+    source_path: &Path,
+    target_path: &Path,
+    stamped_args: &[String],
+) -> Result<(), Box<dyn Error>> {
     let name = target_path
         .file_name()
         .ok_or("--target-path has no file name")?
@@ -41,11 +47,11 @@ fn run() -> Result<(), Box<dyn Error>> {
         .into_owned();
     let staged = target_path.with_file_name(format!(".{name}.{}.new", std::process::id()));
     let stamped = (|| -> Result<(), Box<dyn Error>> {
-        fs::copy(&template, &staged)?;
+        fs::copy(template, &staged)?;
         let mut dest = fs::OpenOptions::new().append(true).open(&staged)?;
-        Trailer::append_to(&source_path, &stamped_args, &mut dest)?;
+        Trailer::append_to(source_path, stamped_args, &mut dest)?;
         drop(dest);
-        replace(&staged, &target_path, &name)
+        replace(&staged, target_path, &name)
     })();
     if stamped.is_err() {
         let _ = fs::remove_file(&staged);
@@ -53,9 +59,6 @@ fn run() -> Result<(), Box<dyn Error>> {
     stamped
 }
 
-/// staged moved over target. On unix a rename replaces a shim that is running. On windows a running shim is open for
-/// as long as its target runs, and replacing it can fail where moving it cannot, so it is moved aside first, and
-/// deleted once nothing runs it: now if it can be, else by the next stamp
 fn replace(staged: &Path, target: &Path, name: &str) -> Result<(), Box<dyn Error>> {
     let aside = |n: &str| n.starts_with(&format!(".{name}.")) && n.ends_with(".old");
     if let Some(dir) = target.parent().filter(|d| !d.as_os_str().is_empty()) {
@@ -132,5 +135,98 @@ fn select_template(source_path: &Path) -> Result<PathBuf, Box<dyn Error>> {
     {
         let _ = source_path;
         Ok(shim_dir.join("wedge"))
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    struct Dir(PathBuf);
+
+    impl Dir {
+        fn new(name: &str) -> Self {
+            let dir = env::temp_dir().join(format!("mallet-{name}-{}", std::process::id()));
+            let _ = fs::remove_dir_all(&dir);
+            fs::create_dir_all(&dir).unwrap();
+            Dir(dir)
+        }
+
+        fn names(&self) -> Vec<String> {
+            let mut names: Vec<String> = fs::read_dir(&self.0)
+                .unwrap()
+                .map(|e| e.unwrap().file_name().to_string_lossy().into_owned())
+                .collect();
+            names.sort();
+            names
+        }
+    }
+
+    impl Drop for Dir {
+        fn drop(&mut self) {
+            let _ = fs::remove_dir_all(&self.0);
+        }
+    }
+
+    #[test]
+    fn a_relative_source_is_made_absolute_and_a_named_one_is_kept() {
+        let relative = absolute_source(PathBuf::from("bin/tool")).unwrap();
+        assert_eq!(relative, env::current_dir().unwrap().join("bin/tool"));
+        let named = PathBuf::from(r"%USERPROFILE%\.ghpm\bin\pwsh.exe");
+        assert_eq!(absolute_source(named.clone()).unwrap(), named);
+    }
+
+    #[test]
+    fn a_stamp_is_the_template_and_its_trailer() {
+        let dir = Dir::new("fresh");
+        let template = dir.0.join("template");
+        fs::write(&template, b"template").unwrap();
+        let shim = dir.0.join("shim");
+        stamp(&template, Path::new("/opt/tool"), &shim, &["-a".into()]).unwrap();
+
+        assert!(fs::read(&shim).unwrap().starts_with(b"template"));
+        let t = Trailer::read_from(&shim).unwrap();
+        assert_eq!(
+            (t.source_path, t.args),
+            (PathBuf::from("/opt/tool"), vec!["-a".to_string()])
+        );
+        assert_eq!(dir.names(), ["shim", "template"]);
+    }
+
+    #[test]
+    fn a_stamp_replaces_the_shim_and_what_an_earlier_one_moved_aside() {
+        let dir = Dir::new("replace");
+        let template = dir.0.join("template");
+        fs::write(&template, b"template").unwrap();
+        let shim = dir.0.join("shim");
+        fs::write(&shim, b"the old shim").unwrap();
+        fs::write(dir.0.join(".shim.1.old"), b"moved aside").unwrap();
+        fs::write(dir.0.join(".other.1.old"), b"another shim's").unwrap();
+        stamp(&template, Path::new("/opt/tool"), &shim, &[]).unwrap();
+
+        assert_eq!(
+            Trailer::read_from(&shim).unwrap().source_path,
+            PathBuf::from("/opt/tool")
+        );
+        assert_eq!(dir.names(), [".other.1.old", "shim", "template"]);
+    }
+
+    #[test]
+    fn a_failed_stamp_leaves_nothing_behind() {
+        let dir = Dir::new("failed");
+        let shim = dir.0.join("shim");
+        fs::write(&shim, b"the old shim").unwrap();
+        assert!(
+            stamp(
+                &dir.0.join("no-template"),
+                Path::new("/opt/tool"),
+                &shim,
+                &[]
+            )
+            .is_err()
+        );
+
+        assert_eq!(fs::read(&shim).unwrap(), b"the old shim");
+        assert_eq!(dir.names(), ["shim"]);
     }
 }

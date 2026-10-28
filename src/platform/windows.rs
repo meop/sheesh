@@ -23,12 +23,9 @@ use windows_sys::Win32::System::Threading::{
 };
 use windows_sys::Win32::UI::WindowsAndMessaging::{MB_ICONERROR, MB_OK, MessageBoxW};
 
-/// the target, once it runs, for the console's close, logoff and shutdown events to wait on
 static TARGET: AtomicPtr<core::ffi::c_void> = AtomicPtr::new(null_mut());
 
-/// the console's Ctrl+C and Ctrl+Break reach the target too, which decides what they mean; the shim waits for it. On
-/// close, logoff and shutdown the shim is ended when this returns, and the job with it would end the target, so it
-/// returns only once the target has had its own chance to finish
+/// the console's Ctrl+C and Ctrl+Break reach the target too, which decides what they mean; the shim waits for it
 unsafe extern "system" fn leave_to_target(event: u32) -> i32 {
     if matches!(
         event,
@@ -84,7 +81,6 @@ pub fn spawn_target(
         return Err(format!("cannot run {}: {error}", target.display()).into());
     }
 
-    // started suspended, so it is in the job before it can start anything of its own
     let _job = kill_with_shim(process.hProcess);
     TARGET.store(process.hProcess, Ordering::Release);
     unsafe {
@@ -97,11 +93,6 @@ pub fn spawn_target(
     Ok(code)
 }
 
-/// a job that ends the target when the shim ends, however it ends: a parent that kills the shim (taskkill, a task
-/// runner's timeout) kills what it thinks it started, as it would on unix, where the shim is the target. Only the
-/// target is in it: what the target starts breaks away, so a server it leaves running in the background (zellij's)
-/// outlives the shim, as it would without one. The job's handle closes when the shim exits; None leaves the target
-/// outside any job, as before, when one cannot be made
 fn kill_with_shim(process: HANDLE) -> Option<HANDLE> {
     unsafe {
         let job = CreateJobObjectW(null(), null());
@@ -125,8 +116,6 @@ fn kill_with_shim(process: HANDLE) -> Option<HANDLE> {
     }
 }
 
-/// an inheritable copy of the shim's standard handle, for the target to have as its own; null when the shim has none
-/// (a GUI shim started without any)
 fn inheritable(which: STD_HANDLE) -> HANDLE {
     unsafe {
         let h = GetStdHandle(which);
@@ -150,10 +139,6 @@ fn own_command_line() -> Vec<u16> {
     }
 }
 
-/// the target's command line: the shim's own, with the stamped arguments after its first word. The first word stays
-/// as the shim was started (`claude`, or the shim's path), so whatever reads the target's command line (Task Manager,
-/// a terminal multiplexer saving the session) sees the shim rather than the versioned path behind it, as on unix. The
-/// shim's own arguments follow exactly as they came, never split and quoted again
 fn command_line(own: &[u16], stamped: &[OsString]) -> Vec<u16> {
     let (first, rest) = own.split_at(first_word_len(own));
     let mut line = first.to_vec();
@@ -170,8 +155,6 @@ fn command_line(own: &[u16], stamped: &[OsString]) -> Vec<u16> {
     line
 }
 
-/// the program name ends at its closing quote when it opens with one, else at the first space or tab: the rule for
-/// the first word alone, which knows no escapes
 fn first_word_len(line: &[u16]) -> usize {
     if line.first() == Some(&(b'"' as u16)) {
         match line[1..].iter().position(|&c| c == b'"' as u16) {
@@ -185,8 +168,6 @@ fn first_word_len(line: &[u16]) -> usize {
     }
 }
 
-/// one argument as the C runtime's parser reads it back: bare when it can be, else in quotes with its quotes and the
-/// backslashes before them escaped
 fn quote(arg: &OsStr, out: &mut Vec<u16>) {
     let arg = wide(arg);
     let bare = !arg.is_empty()
@@ -218,7 +199,6 @@ fn wide(s: &OsStr) -> Vec<u16> {
     s.encode_wide().collect()
 }
 
-/// a GUI shim has no console for its errors, so they are a message box instead of nothing at all
 pub fn alert(message: &str) {
     let mut text = wide(OsStr::new(message));
     text.push(0);
@@ -257,6 +237,10 @@ mod tests {
         );
         assert_eq!(line(r#""a b"x"#, &[]), r#""a b" x"#);
         assert_eq!(line("claude\targ", &["s"]), "claude s\targ");
+        assert_eq!(
+            line(r#""no closing quote"#, &["s"]),
+            r#""no closing quote s"#
+        );
     }
 
     #[test]

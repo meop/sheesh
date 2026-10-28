@@ -14,8 +14,11 @@ pub struct Trailer {
 
 impl Trailer {
     pub fn read_from_self() -> Option<Self> {
-        let exe = std::env::current_exe().ok()?;
-        let mut f = fs::File::open(&exe).ok()?;
+        Self::read_from(&std::env::current_exe().ok()?)
+    }
+
+    pub fn read_from(path: &Path) -> Option<Self> {
+        let mut f = fs::File::open(path).ok()?;
 
         f.seek(SeekFrom::End(-8)).ok()?;
         let mut tail = [0u8; 8];
