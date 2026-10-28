@@ -47,8 +47,8 @@ GPG-signed tag `v<version>` and publishes the archives to a public GitHub
 release. Requires the `GPG_PRIVATE_KEY` and `GPG_PASSPHRASE` repository
 secrets. Never create the tag by hand.
 
-ghpm and gotm pin an exact sheesh release, by the sha256 of its archives and
-of the binaries inside them (in golie). A new sheesh release reaches them only
+ghpm and gotm pin an exact wedge release, by the sha256 of its archives and
+of the binaries inside them (in golie). A new wedge release reaches them only
 when that pin is bumped.
 
 ## Project structure
@@ -59,21 +59,21 @@ when that pin is bumped.
 - `src/platform/` — platform dispatch for `spawn_target` and `alert` (unix: exec under the shim's argv[0]; windows:
   CreateProcessW with the shim's own first word and raw arguments as the command line, in a kill-on-close job the
   target's children break away from, Ctrl+C left to the target, a GUI shim's errors in a message box)
-- `src/bin/sheesh.rs` — console shim entry point
-- `src/bin/sheesh-gui.rs` — GUI subsystem shim entry point
-- `src/bin/kebab.rs` — stamper tool: copies shim template and embeds target path, staged beside the shim and moved
+- `src/bin/wedge.rs` — console shim entry point
+- `src/bin/wedge-gui.rs` — GUI subsystem shim entry point
+- `src/bin/mallet.rs` — stamper tool: copies shim template and embeds target path, staged beside the shim and moved
   over it (on Windows a running shim is moved aside first, and the next stamp deletes it)
 
 ## Conventions
 
-- Three binaries in one crate: `sheesh`, `sheesh-gui`, `kebab`
-- All three compile on every platform; only Windows releases package `sheesh-gui`
+- Three binaries in one crate: `wedge`, `wedge-gui`, `mallet`
+- All three compile on every platform; only Windows releases package `wedge-gui`
   (the `#![cfg_attr(windows, windows_subsystem = "windows")]` attribute is a no-op on Unix)
-- `kebab` selects the GUI or console shim template based on PE subsystem of the source binary
+- `mallet` selects the GUI or console shim template based on PE subsystem of the source binary
 - Trailer format: `[path bytes][u32 path_len LE][b"SHIM"]` appended to the exe; with stamped arguments
   `[path\0arg\0...][u32 len LE][b"SHM2"]`. A shim stamped without arguments is byte for byte what it was before
   arguments existed
 - The only dependency is `windows-sys`, on Windows: hand-declared FFI was fine for one call, not for CreateProcessW
   and job objects
-- `%NAME%` is expanded on Windows only, when the shim runs; kebab expands it too, but only to read the PE subsystem
+- `%NAME%` is expanded on Windows only, when the shim runs; mallet expands it too, but only to read the PE subsystem
 - Version is in `Cargo.toml`; CI creates a signed tag on version bump

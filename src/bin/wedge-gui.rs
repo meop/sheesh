@@ -1,5 +1,5 @@
 #![cfg_attr(windows, windows_subsystem = "windows")]
 
 fn main() {
-    sheesh::run_gui()
+    wedge::run_gui()
 }

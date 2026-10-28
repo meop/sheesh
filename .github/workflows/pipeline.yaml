@@ -105,10 +105,10 @@ jobs:
         shell: bash
         run: |
           VERSION=${{ needs.version.outputs.new_version }}
-          ARTIFACT=sheesh-$VERSION-${{ matrix.artifact }}
+          ARTIFACT=wedge-$VERSION-${{ matrix.artifact }}
           mkdir -p dist/$ARTIFACT
-          cp target/${{ matrix.target }}/release/sheesh dist/$ARTIFACT/
-          cp target/${{ matrix.target }}/release/kebab dist/$ARTIFACT/
+          cp target/${{ matrix.target }}/release/wedge dist/$ARTIFACT/
+          cp target/${{ matrix.target }}/release/mallet dist/$ARTIFACT/
           cp LICENSE dist/$ARTIFACT/
           tar -czf dist/$ARTIFACT.tar.gz -C dist $ARTIFACT
       - name: Package (Windows)
@@ -116,18 +116,18 @@ jobs:
         shell: pwsh
         run: |
           $VERSION = "${{ needs.version.outputs.new_version }}"
-          $ARTIFACT = "sheesh-$VERSION-${{ matrix.artifact }}"
+          $ARTIFACT = "wedge-$VERSION-${{ matrix.artifact }}"
           New-Item -ItemType Directory -Path "dist/$ARTIFACT" -Force | Out-Null
-          Copy-Item "target/${{ matrix.target }}/release/sheesh.exe" "dist/$ARTIFACT/"
-          Copy-Item "target/${{ matrix.target }}/release/sheesh-gui.exe" "dist/$ARTIFACT/"
-          Copy-Item "target/${{ matrix.target }}/release/kebab.exe" "dist/$ARTIFACT/"
+          Copy-Item "target/${{ matrix.target }}/release/wedge.exe" "dist/$ARTIFACT/"
+          Copy-Item "target/${{ matrix.target }}/release/wedge-gui.exe" "dist/$ARTIFACT/"
+          Copy-Item "target/${{ matrix.target }}/release/mallet.exe" "dist/$ARTIFACT/"
           Copy-Item "LICENSE" "dist/$ARTIFACT/"
           Compress-Archive -Path "dist/$ARTIFACT" -DestinationPath "dist/$ARTIFACT.zip"
       - name: Upload artifact
         uses: actions/upload-artifact@v7
         with:
-          name: sheesh-${{ needs.version.outputs.new_version }}-${{ matrix.artifact }}
-          path: dist/sheesh-${{ needs.version.outputs.new_version }}-${{ matrix.artifact }}.*
+          name: wedge-${{ needs.version.outputs.new_version }}-${{ matrix.artifact }}
+          path: dist/wedge-${{ needs.version.outputs.new_version }}-${{ matrix.artifact }}.*
           if-no-files-found: error
 
   publish:

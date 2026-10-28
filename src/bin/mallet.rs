@@ -1,10 +1,10 @@
-use sheesh::data::Trailer;
-#[cfg(windows)]
-use sheesh::windows_pe;
 use std::env;
 use std::error::Error;
 use std::fs;
 use std::path::{Path, PathBuf};
+use wedge::data::Trailer;
+#[cfg(windows)]
+use wedge::windows_pe;
 
 fn main() {
     let args: Vec<String> = env::args().collect();
@@ -13,7 +13,7 @@ fn main() {
         return;
     }
     if let Err(e) = run() {
-        eprintln!("kebab: {e}");
+        eprintln!("mallet: {e}");
         std::process::exit(1);
     }
 }
@@ -21,7 +21,7 @@ fn main() {
 fn run() -> Result<(), Box<dyn Error>> {
     let (source_path, target_path, stamped_args) = parse_args()?;
 
-    // a relative path would be found from wherever the shim is run, so it is made absolute here, from where kebab is;
+    // a relative path would be found from wherever the shim is run, so it is made absolute here, from where mallet is;
     // one that opens with `%NAME%` is absolute once the shim expands it
     let source_path = if source_path.to_string_lossy().starts_with('%') {
         source_path
@@ -30,7 +30,7 @@ fn run() -> Result<(), Box<dyn Error>> {
     };
 
     // the path as the shim will find it, for its subsystem; the trailer keeps it as written
-    let resolved = PathBuf::from(sheesh::expand_env(&source_path.to_string_lossy()));
+    let resolved = PathBuf::from(wedge::expand_env(&source_path.to_string_lossy()));
     let template = select_template(&resolved)?;
 
     // stamped beside the shim, then moved over it: nothing ever runs a shim half written
@@ -114,16 +114,16 @@ fn parse_args() -> Result<(PathBuf, PathBuf, Vec<String>), Box<dyn Error>> {
 fn select_template(source_path: &Path) -> Result<PathBuf, Box<dyn Error>> {
     let shim_dir = env::current_exe()?
         .parent()
-        .ok_or("cannot locate kebab exe dir")?
+        .ok_or("cannot locate mallet exe dir")?
         .to_path_buf();
 
     #[cfg(windows)]
     {
         let use_gui = matches!(windows_pe::detect(source_path)?, windows_pe::Subsystem::Gui);
         let name = if use_gui {
-            "sheesh-gui.exe"
+            "wedge-gui.exe"
         } else {
-            "sheesh.exe"
+            "wedge.exe"
         };
         Ok(shim_dir.join(name))
     }
@@ -131,6 +131,6 @@ fn select_template(source_path: &Path) -> Result<PathBuf, Box<dyn Error>> {
     #[cfg(unix)]
     {
         let _ = source_path;
-        Ok(shim_dir.join("sheesh"))
+        Ok(shim_dir.join("wedge"))
     }
 }

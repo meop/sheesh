@@ -1,6 +1,6 @@
 [package]
-name = "sheesh"
-version = "0.2.1"
+name = "wedge"
+version = "0.3.0"
 edition = "2024"
 license = "MIT"
 
@@ -18,16 +18,16 @@ windows-sys = { version = "0.61", features = [
 ] }
 
 [[bin]]
-name = "sheesh"
-path = "src/bin/sheesh.rs"
+name = "wedge"
+path = "src/bin/wedge.rs"
 
 [[bin]]
-name = "sheesh-gui"
-path = "src/bin/sheesh-gui.rs"
+name = "wedge-gui"
+path = "src/bin/wedge-gui.rs"
 
 [[bin]]
-name = "kebab"
-path = "src/bin/kebab.rs"
+name = "mallet"
+path = "src/bin/mallet.rs"
 
 [profile.release]
 opt-level = "z"
