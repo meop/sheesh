@@ -21,14 +21,63 @@ fn main() {
 fn run() -> Result<(), Box<dyn Error>> {
     let (source_path, target_path, stamped_args) = parse_args()?;
 
+    // a relative path would be found from wherever the shim is run, so it is made absolute here, from where kebab is;
+    // one that opens with `%NAME%` is absolute once the shim expands it
+    let source_path = if source_path.to_string_lossy().starts_with('%') {
+        source_path
+    } else {
+        std::path::absolute(&source_path)?
+    };
+
     // the path as the shim will find it, for its subsystem; the trailer keeps it as written
     let resolved = PathBuf::from(sheesh::expand_env(&source_path.to_string_lossy()));
     let template = select_template(&resolved)?;
-    fs::copy(&template, &target_path)?;
 
-    let mut dest = fs::OpenOptions::new().append(true).open(&target_path)?;
-    Trailer::append_to(&source_path, &stamped_args, &mut dest)?;
+    // stamped beside the shim, then moved over it: nothing ever runs a shim half written
+    let name = target_path
+        .file_name()
+        .ok_or("--target-path has no file name")?
+        .to_string_lossy()
+        .into_owned();
+    let staged = target_path.with_file_name(format!(".{name}.{}.new", std::process::id()));
+    let stamped = (|| -> Result<(), Box<dyn Error>> {
+        fs::copy(&template, &staged)?;
+        let mut dest = fs::OpenOptions::new().append(true).open(&staged)?;
+        Trailer::append_to(&source_path, &stamped_args, &mut dest)?;
+        drop(dest);
+        replace(&staged, &target_path, &name)
+    })();
+    if stamped.is_err() {
+        let _ = fs::remove_file(&staged);
+    }
+    stamped
+}
 
+/// staged moved over target. On unix a rename replaces a shim that is running. On windows a running shim is open for
+/// as long as its target runs, and replacing it can fail where moving it cannot, so it is moved aside first, and
+/// deleted once nothing runs it: now if it can be, else by the next stamp
+fn replace(staged: &Path, target: &Path, name: &str) -> Result<(), Box<dyn Error>> {
+    let aside = |n: &str| n.starts_with(&format!(".{name}.")) && n.ends_with(".old");
+    if let Some(dir) = target.parent().filter(|d| !d.as_os_str().is_empty()) {
+        for entry in fs::read_dir(dir)?.flatten() {
+            if aside(&entry.file_name().to_string_lossy()) {
+                let _ = fs::remove_file(entry.path());
+            }
+        }
+    }
+
+    match fs::rename(staged, target) {
+        Ok(()) => return Ok(()),
+        Err(e) if !target.exists() => return Err(e.into()),
+        Err(_) => {}
+    }
+    let old = target.with_file_name(format!(".{name}.{}.old", std::process::id()));
+    fs::rename(target, &old)?;
+    if let Err(e) = fs::rename(staged, target) {
+        let _ = fs::rename(&old, target);
+        return Err(e.into());
+    }
+    let _ = fs::remove_file(&old);
     Ok(())
 }
 
