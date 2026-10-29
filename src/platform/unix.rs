@@ -7,9 +7,7 @@ use std::sync::atomic::{AtomicI32, Ordering};
 static TARGET: AtomicI32 = AtomicI32::new(0);
 static PENDING: AtomicI32 = AtomicI32::new(0);
 
-/// sent to the shim alone, by a service manager stopping it or a kill of its pid: they are the target's
 const PASSED: [libc::c_int; 4] = [libc::SIGHUP, libc::SIGTERM, libc::SIGUSR1, libc::SIGUSR2];
-/// a terminal sends these to its whole foreground process group, the target in it already: the shim waits it out
 const LEFT: [libc::c_int; 2] = [libc::SIGINT, libc::SIGQUIT];
 
 extern "C" fn pass_on(signal: libc::c_int) {
@@ -23,7 +21,6 @@ extern "C" fn pass_on(signal: libc::c_int) {
 
 extern "C" fn leave(_: libc::c_int) {}
 
-/// a handler, never SIG_IGN: exec resets a handled signal to its default in the target, and keeps an ignored one
 fn handle(signal: libc::c_int, handler: extern "C" fn(libc::c_int)) {
     unsafe {
         let mut action: libc::sigaction = std::mem::zeroed();
@@ -61,7 +58,7 @@ pub fn spawn_target(
                 if libc::prctl(libc::PR_SET_PDEATHSIG, libc::SIGKILL) != 0 {
                     return Err(std::io::Error::last_os_error());
                 }
-                // the shim may have died before the line above, which would then never fire
+                // the shim may have died before prctl, which would then never fire
                 if libc::getppid() != shim {
                     libc::_exit(1);
                 }
@@ -86,7 +83,6 @@ pub fn spawn_target(
     Ok(status.code().unwrap_or(1) as u32)
 }
 
-/// the shim ends as the target did, so whatever waits on it (a shell's `$?`, a loop broken by ^C) reads the signal
 fn die_of(signal: libc::c_int) {
     unsafe {
         libc::signal(signal, libc::SIG_DFL);
