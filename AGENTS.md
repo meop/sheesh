@@ -74,6 +74,11 @@ when that pin is bumped.
 - `src/bin/mallet.rs` — stamper tool: copies shim template and embeds target path, staged beside the shim and moved
   over it (on Windows a running shim is moved aside first, and the next stamp deletes it)
 
+## Testing on a real host
+
+CI runs the tests on Linux, macOS and Windows. On a Windows machine of your own, run `cargo test` in its desktop
+session, not an ssh login: rustup's `cargo` and `rustc` proxies cannot start in an ssh login (os error 448).
+
 ## Conventions
 
 - Three binaries in one crate: `wedge`, `wedge-gui`, `mallet`
