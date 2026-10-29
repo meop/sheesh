@@ -6,14 +6,19 @@ Shim executables that run a real binary from where it is unpacked, under their o
 
 | Binary | Platforms | Purpose |
 |--------|-----------|---------|
-| `wedge` | all | Console shim — reads the embedded path and execs the target |
+| `wedge` | all | Console shim — reads the embedded path, runs the target and waits for it |
 | `wedge-gui` | Windows | GUI subsystem shim — same as `wedge` but suppresses the console window |
 | `mallet` | all | Stamper tool — copies a shim template and embeds a target path into it |
 
 ## How it works
 
 1. `mallet --source-path <target> --target-path <output>` copies the appropriate `wedge` template and appends the target path as a small binary trailer.
-2. When the output executable is run, it reads the trailer, resolves the target path, and runs it — passing all arguments through.
+2. When the output executable is run, it reads the trailer, resolves the target path, and runs it as a child it waits for — passing all arguments through.
+
+The shim never becomes the target, on any platform: it stays the process that was started, at the path it was stamped
+to, with the bytes it was stamped with. So what knows a program by its process — macOS's privacy permissions, a
+service manager, a firewall rule — keeps knowing the shim across upgrades of the target behind it, as long as the shim
+is not restamped.
 
 The target runs under the shim's name: whatever reads its command line (`ps`, Task Manager, a terminal multiplexer
 saving its session) sees the shim, as it would through a symlink, rather than the versioned path behind it, which a
@@ -39,12 +44,13 @@ The outcome is the same everywhere; how the shim gets there is each platform's o
 
 |                                  | Linux and macOS                   | Windows                                                     |
 | -------------------------------- | --------------------------------- | ----------------------------------------------------------- |
-| the shim process                 | becomes the target (`exec`)       | starts the target and waits for it                          |
+| the shim process                 | starts the target and waits for it | starts the target and waits for it                         |
 | the target's command line        | the shim's name, then arguments   | the shim's first word as it was started, then arguments     |
 | the shim's own arguments         | passed as the shim got them       | passed as the shim's raw command line had them, unparsed    |
-| Ctrl+C and signals               | the target's, directly            | console events left to the target; the shim waits it out    |
-| exit code                        | the target's                      | the target's, passed on by the shim                         |
-| the shim is killed               | it is the target                  | the target ends with it (a job object)                      |
+| Ctrl+C                           | left to the target; the shim waits it out | console events left to the target; the shim waits it out |
+| a signal sent to the shim alone  | HUP, TERM, USR1, USR2 passed on   | —                                                           |
+| exit code                        | the target's, or the shim dies of the signal that ended it | the target's, passed on by the shim |
+| the shim is killed               | Linux: the target ends with it; macOS: the target goes on | the target ends with it (a job object) |
 | what the target starts           | outlives it, as it would          | outlives it: it breaks away from the job                    |
 | `%NAME%` in the stamped path     | taken as written                  | expanded when the shim runs                                 |
 | replacing a running shim         | a rename over it                  | it is moved aside, and deleted by the next stamp            |
