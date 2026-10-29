@@ -21,7 +21,9 @@ fn main() {
 fn run() -> Result<(), Box<dyn Error>> {
     let (source_path, target_path, stamped_args) = parse_args()?;
     let source_path = absolute_source(source_path)?;
-    let resolved = PathBuf::from(wedge::expand_env(&source_path.to_string_lossy()));
+    let resolved = wedge::pointer::resolve(&PathBuf::from(wedge::expand_env(
+        &source_path.to_string_lossy(),
+    )));
     let template = select_template(&resolved)?;
     stamp(&template, &source_path, &target_path, &stamped_args)
 }

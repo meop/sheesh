@@ -59,6 +59,7 @@ when that pin is bumped.
 ## Project structure
 
 - `src/lib.rs` — shim runtime: reads the embedded trailer and runs the target as a child it waits for
+- `src/pointer.rs` — pointer files: a regular file where a stamped path has a directory, read for the directory it names
 - `src/data.rs` — binary trailer format (append/read the embedded path and arguments at end of exe), `%NAME%` expansion
 - `src/windows_pe.rs` — Windows PE subsystem detection (GUI vs Console)
 - `src/platform/` — platform dispatch for `spawn_target` and `alert` (unix: a child under the shim's argv[0], signals sent to
@@ -68,6 +69,7 @@ when that pin is bumped.
   target's children break away from, Ctrl+C left to the target, a GUI shim's errors in a message box)
 - `src/bin/wedge.rs` — console shim entry point
 - `src/bin/wedge-gui.rs` — GUI subsystem shim entry point
+- `tests/windows.rs` — a shim stamped through a pointer on Windows
 - `tests/unix.rs` — the unix runtime against a real stamped shim: parent, exit code, signals, ^C, a killed shim
 - `src/bin/mallet.rs` — stamper tool: copies shim template and embeds target path, staged beside the shim and moved
   over it (on Windows a running shim is moved aside first, and the next stamp deletes it)

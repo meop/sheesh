@@ -28,6 +28,12 @@ so a tool that finds its files from where it sits still finds them.
 `--arg <value>` (repeatable) stamps arguments the target always gets first, before the shim's own:
 `mallet --source-path pwsh.exe --target-path shell.exe --arg -nol` runs `pwsh.exe -nol <args>`.
 
+A component of the stamped path may be a pointer file: a regular file where a directory would be, holding that
+directory's absolute path. `mallet --source-path ~/.ghpm/extract/fzf/latest/fzf` with `latest` holding
+`/home/u/.ghpm/extract/fzf/0.74.5` runs `/home/u/.ghpm/extract/fzf/0.74.5/fzf`, and rewriting `latest` moves every shim
+stamped through it to another version without stamping them again. A pointer file is read the same by every process,
+elevated or not, where Windows does not let an elevated process follow a link a user made.
+
 A relative `--source-path` is made absolute from where `mallet` runs. `mallet` stamps the shim beside `--target-path` and
 moves it into place, so it can replace a shim that is running, and nothing ever runs one half written.
 

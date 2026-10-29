@@ -128,3 +128,35 @@ fn the_target_ends_with_a_shim_that_is_killed() {
     child.wait().unwrap();
     assert!(wait_for(|| !alive(target)), "the target outlived its shim");
 }
+
+#[test]
+fn a_shim_stamped_through_a_pointer_runs_what_the_pointer_names_now() {
+    let dir = scratch("pointer");
+    for version in ["1", "2"] {
+        let bin = dir.join(version).join("tool");
+        std::fs::create_dir_all(bin.parent().unwrap()).unwrap();
+        std::fs::write(&bin, format!("#!/bin/sh\necho {version}\n")).unwrap();
+        std::fs::set_permissions(&bin, std::os::unix::fs::PermissionsExt::from_mode(0o755))
+            .unwrap();
+    }
+    let latest = dir.join("latest");
+    std::fs::write(&latest, dir.join("1").display().to_string()).unwrap();
+    let shim = dir.join("shimmed");
+    assert!(
+        Command::new(env!("CARGO_BIN_EXE_mallet"))
+            .args(["--source-path"])
+            .arg(latest.join("tool"))
+            .args(["--target-path"])
+            .arg(&shim)
+            .status()
+            .unwrap()
+            .success()
+    );
+    let stamped = std::fs::read(&shim).unwrap();
+
+    let ran = |shim: &Path| String::from_utf8(Command::new(shim).output().unwrap().stdout).unwrap();
+    assert_eq!(ran(&shim), "1\n");
+    std::fs::write(&latest, dir.join("2").display().to_string()).unwrap();
+    assert_eq!(ran(&shim), "2\n");
+    assert_eq!(std::fs::read(&shim).unwrap(), stamped, "the shim changed");
+}
