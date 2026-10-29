@@ -46,7 +46,7 @@ Add a target with `rustup target add <target>` before building for it.
 To cut a release: bump `version` in `Cargo.toml` and push to `main`.
 
 The CI pipeline (`.github/workflows/pipeline.yaml`) runs: Version check (skips
-the rest if `v<version>` already exists) → Validate (fmt + clippy + test) →
+the rest if `v<version>` already exists) → Validate (fmt + clippy) and Test (on Linux, macOS and Windows) →
 Build for every target → Publish, which signs `SHA256SUMS`, creates a
 GPG-signed tag `v<version>` and publishes the archives to a public GitHub
 release. Requires the `GPG_PRIVATE_KEY` and `GPG_PASSPHRASE` repository
