@@ -59,7 +59,7 @@ when that pin is bumped.
 ## Project structure
 
 - `src/lib.rs` — shim runtime: reads the embedded trailer and runs the target as a child it waits for
-- `src/pointer.rs` — pointer files: a regular file where a stamped path has a directory, read for the directory it names
+- `src/pointer.rs` — pointer files: a regular file where a stamped path has a directory, naming it relative to its own
 - `src/data.rs` — binary trailer format (append/read the embedded path and arguments at end of exe), `%NAME%` expansion
 - `src/windows_pe.rs` — Windows PE subsystem detection (GUI vs Console)
 - `src/platform/` — platform dispatch for `spawn_target` and `alert` (unix: a child under the shim's argv[0], signals sent to

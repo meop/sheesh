@@ -19,7 +19,7 @@ fn a_shim_stamped_through_a_pointer_runs_what_the_pointer_names_now() {
         std::fs::copy(system.join(program), dir.join(version).join("tool.exe")).unwrap();
     }
     let latest = dir.join("latest");
-    std::fs::write(&latest, dir.join("1").display().to_string()).unwrap();
+    std::fs::write(&latest, "1").unwrap();
     let shim = dir.join("shimmed.exe");
     assert!(
         Command::new(env!("CARGO_BIN_EXE_mallet"))
@@ -38,7 +38,7 @@ fn a_shim_stamped_through_a_pointer_runs_what_the_pointer_names_now() {
         .output()
         .unwrap();
     assert_eq!(String::from_utf8_lossy(&out.stdout).trim(), "one");
-    std::fs::write(&latest, dir.join("2").display().to_string()).unwrap();
+    std::fs::write(&latest, "2").unwrap();
     let out = Command::new(&shim).output().unwrap();
     assert!(
         String::from_utf8_lossy(&out.stdout)

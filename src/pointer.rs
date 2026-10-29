@@ -1,4 +1,4 @@
-//! A pointer file: a regular file where a stamped path has a directory, holding that directory's absolute path.
+//! A pointer file: a regular file where a stamped path has a directory, naming that directory relative to its own.
 
 use std::path::{Component, Path, PathBuf};
 
@@ -17,8 +17,12 @@ pub fn resolve(path: &Path) -> PathBuf {
         let Ok(content) = std::fs::read_to_string(&resolved) else {
             continue;
         };
-        let dir = PathBuf::from(content.trim());
-        if dir.is_absolute() {
+        let named = content.trim();
+        let Some(parent) = resolved.parent().filter(|_| !named.is_empty()) else {
+            continue;
+        };
+        let dir = parent.join(named);
+        if dir.is_dir() {
             resolved = dir;
             hops += 1;
         }
@@ -73,12 +77,28 @@ mod tests {
     }
 
     #[test]
-    fn a_file_that_names_no_absolute_directory_is_not_a_pointer() {
+    fn a_relative_pointer_names_a_directory_beside_it() {
         let key = scratch("relative");
+        fs::create_dir_all(key.join("0.74.5")).unwrap();
+        fs::write(key.join("latest"), "0.74.5\n").unwrap();
+        assert_eq!(
+            resolve(&key.join("latest").join("fzf")),
+            key.join("0.74.5").join("fzf")
+        );
+    }
+
+    #[test]
+    fn a_file_that_names_no_directory_there_is_not_a_pointer() {
+        let key = scratch("missing");
         fs::write(key.join("latest"), "0.74.5").unwrap();
+        fs::write(key.join("empty"), "").unwrap();
         assert_eq!(
             resolve(&key.join("latest").join("fzf")),
             key.join("latest").join("fzf")
+        );
+        assert_eq!(
+            resolve(&key.join("empty").join("fzf")),
+            key.join("empty").join("fzf")
         );
     }
 
